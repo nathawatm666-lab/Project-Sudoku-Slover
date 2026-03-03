@@ -2,7 +2,8 @@
 // === นำเข้าไลบรารีที่จำเป็น ===
 import java.awt.*; // สำหรับจัดการ GUI พื้นฐาน เช่น สี, ฟอนต์, เลย์เอาต์
 import java.awt.event.*; // สำหรับจัดการเหตุการณ์ต่างๆ เช่น การคลิก, การพิมพ์
-import javax.swing.*; // ไลบรารี GUI หลัก เช่น JFrame, JPanel, JTextField, JButton
+import java.util.concurrent.ExecutionException; // ไลบรารี GUI หลัก เช่น JFrame, JPanel, JTextField, JButton
+import javax.swing.*;
 
 public class SudokuGame extends JFrame {
 
@@ -23,8 +24,8 @@ public class SudokuGame extends JFrame {
     private static final Color BORDER_THIN = new Color(51, 65, 85);
 
     // ฟีเจอร์หลัก ==
-    private int[][] playerBoard = new int[SIZE][SIZE]; // เก็บตัวเลขปัจจุบันที่อยู่บนหน้าจอ (ที่ผู้เล่นพิมพ์ลงไป)
-    private JTextField[][] cells = new JTextField[SIZE][SIZE]; // เก็บออบเจกต์ JTextField (กล่องข้อความ) ทั้ง 81
+    private final int[][] playerBoard = new int[SIZE][SIZE]; // เก็บตัวเลขปัจจุบันที่อยู่บนหน้าจอ (ที่ผู้เล่นพิมพ์ลงไป)
+    private final JTextField[][] cells = new JTextField[SIZE][SIZE]; // เก็บออบเจกต์ JTextField (กล่องข้อความ) ทั้ง 81
                                                                // ช่องบนหน้าจอ เพื่อให้เราสั่งเปลี่ยนสีหรือดึงข้อความได้
     private int selectedRow = -1, selectedCol = -1; // เก็บตำแหน่งของช่องที่ผู้เล่นกำลังเลือกอยู่ (เริ่มต้นเป็น -1
                                                     // คือยังไม่เลือกอะไรเลย)
@@ -34,8 +35,8 @@ public class SudokuGame extends JFrame {
     // สำหรับจัดการหน้าต่าง (Start Menu & Game)
     // ตัวจัดการหน้าจอ (Layout) ที่ช่วยให้เราสลับไปมาระหว่างหน้า "Menu" กับหน้า
     // "Game" ได้โดยไม่ต้องเปิดหน้าต่างโปรแกรมใหม่
-    private CardLayout cardLayout;
-    private JPanel mainContentPanel;
+    private final CardLayout cardLayout;
+    private final JPanel mainContentPanel;
 
     // ทำหน้าที่ตั้งค่าหน้าต่างโปรแกรม (JFrame), เรียกใช้ CardLayout, และนำหน้า Menu
     // กับหน้า Game มาแปะรวมกัน
@@ -264,14 +265,12 @@ public class SudokuGame extends JFrame {
                                 }
                                 // เลื่อนช่องด้วยปุ่มลูกศร ↑↓←→ (ไม่ต้องคลิกเมาส์)
                                 int nr = fr, nc = fc;
-                                if (code == KeyEvent.VK_UP)
-                                    nr = Math.max(0, fr - 1);
-                                else if (code == KeyEvent.VK_DOWN)
-                                    nr = Math.min(8, fr + 1);
-                                else if (code == KeyEvent.VK_LEFT)
-                                    nc = Math.max(0, fc - 1);
-                                else if (code == KeyEvent.VK_RIGHT)
-                                    nc = Math.min(8, fc + 1);
+                                switch (code) {
+                                    case KeyEvent.VK_UP -> nr = Math.max(0, fr - 1);
+                                    case KeyEvent.VK_DOWN -> nr = Math.min(8, fr + 1);
+                                    case KeyEvent.VK_LEFT -> nc = Math.max(0, fc - 1);
+                                    case KeyEvent.VK_RIGHT -> nc = Math.min(8, fc + 1);
+                                }
                                 if (nr != fr || nc != fc) {
                                     cells[nr][nc].requestFocusInWindow(); // ย้าย focus ไปช่องใหม่
                                 }
@@ -580,8 +579,7 @@ public class SudokuGame extends JFrame {
                 protected boolean[] doInBackground() {
                     // คัดลอก playerBoard ไปแก้
                     for (int r = 0; r < SIZE; r++)
-                        for (int c = 0; c < SIZE; c++)
-                            boardToSolve[r][c] = playerBoard[r][c];
+                        System.arraycopy(playerBoard[r], 0, boardToSolve[r], 0, SIZE);
                     boolean solved = solveBoard(boardToSolve, 0, 0);
                     solveTimeUs = (System.nanoTime() - startTime) / 1_000; // แปลงเป็น ไมโครวินาที (µs)
                     return new boolean[] { solved };
@@ -644,7 +642,7 @@ public class SudokuGame extends JFrame {
                             statusLabel.setText("No Solution Found");
                             statusLabel.setForeground(new Color(239, 68, 68));
                         }
-                    } catch (Exception ex) {
+                    } catch (InterruptedException | ExecutionException ex) {
                         statusLabel.setText("Error");
                     }
                 }
@@ -658,7 +656,7 @@ public class SudokuGame extends JFrame {
         try {
             // ตั้งค่า UI ให้ดูเหมือนโปรแกรมบน OS (Windows/Mac)
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (Exception ignored) {
+        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | javax.swing.UnsupportedLookAndFeelException ignored) {
         }
 
         // สร้างหน้าต่างเกมใน Event Dispatch Thread (กฎของ Swing)
